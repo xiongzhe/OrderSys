@@ -1,0 +1,212 @@
+//
+//  OrderViewController.m
+//  OrderSys
+//
+//  Created by Macx on 15/8/11.
+//  Copyright (c) 2015年 北京星辰万合. All rights reserved.
+//
+
+#import "OrderCusViewController.h"
+#import "BarNumInfo.h"
+#import "BarNumCell.h"
+#import "DishesListViewController.h"
+#import "DishingViewController.h"
+
+#define NUMBER_ITEMS_ON_LOAD 20
+#define COLLECTION_CELL_HEIGHT IS_IPHONE && SCREEN_MAX_LENGTH >= 568.0 ? 60 : 50
+
+/**
+ * 顾客点餐
+ **/
+@interface OrderCusViewController ()<UITabBarDelegate,UICollectionViewDataSource,UICollectionViewDelegate,UICollectionViewDelegateFlowLayout>
+
+@property(nonatomic,retain) NSMutableArray *data;
+@property(nonatomic, retain) UICollectionView *collectionView;
+
+@end
+
+@implementation OrderCusViewController
+
+- (instancetype)init
+{
+    self = [super init];
+    if (self) {
+        
+        [self getData];
+        [self setupCollectionView];
+        
+        CGFloat unitWidth = (SCREEN_WIDTH - 40 - 6)/7;
+        //注释视图
+        UIView *notesView = [[UIView alloc] initWithFrame:CGRectMake(0, SCREEN_HEIGHT - TABBAR_HEIGHT - 50, SCREEN_WIDTH, 50)];
+        notesView.backgroundColor = [UIColor clearColor];
+        
+        UIImageView *oneImage = [[UIImageView alloc] initWithFrame:CGRectMake(20, 0, unitWidth *5/4, notesView.frame.size.height)];
+        [oneImage setImage:[UIImage imageNamed:@"select_yes"]];
+        [notesView addSubview:oneImage];
+        
+        UIImageView *twoImage = [[UIImageView alloc] initWithFrame:CGRectMake(oneImage.frame.origin.x + oneImage.frame.size.width + 2, 0, unitWidth *5/4, notesView.frame.size.height)];
+        [twoImage setImage:[UIImage imageNamed:@"select_yes"]];
+        [notesView addSubview:twoImage];
+        
+        UIImageView *threeImage = [[UIImageView alloc] initWithFrame:CGRectMake(twoImage.frame.origin.x + twoImage.frame.size.width + 2, 0, unitWidth *5/2, notesView.frame.size.height)];
+        [threeImage setImage:[UIImage imageNamed:@"select_yes"]];
+        [notesView addSubview:threeImage];
+        
+        UIImageView *fourImage = [[UIImageView alloc] initWithFrame:CGRectMake(threeImage.frame.origin.x + threeImage.frame.size.width + 2, 0, unitWidth * 2, notesView.frame.size.height)];
+        [fourImage setImage:[UIImage imageNamed:@"select_yes"]];
+        [notesView addSubview:fourImage];
+        [self.view addSubview:notesView];
+    }
+    return self;
+}
+
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    // Do any additional setup after loading the view.
+    
+    //设置导航栏返回按钮为白色
+    [self.navigationController.navigationBar setTintColor:[UIColor whiteColor]];
+    //设置背景颜色
+    self.view.backgroundColor = RGBColorWithoutAlpha(226, 229, 228);
+}
+
+
+//创建collectionView
+- (void) setupCollectionView {
+    UICollectionViewFlowLayout *flowLayout = [[UICollectionViewFlowLayout alloc] init];
+    [flowLayout setItemSize:CGSizeMake(COLLECTION_CELL_HEIGHT, COLLECTION_CELL_HEIGHT)];//设置cell的尺寸
+    [flowLayout setScrollDirection:UICollectionViewScrollDirectionVertical];//设置其布局方向
+    flowLayout.sectionInset = UIEdgeInsetsMake(5, 5, 5, 5);//设置其边界
+    
+    //其布局很有意思，当你的cell设置大小后，一行多少个cell，由cell的宽度决定
+    _collectionView = [[UICollectionView alloc]initWithFrame:CGRectMake(20, 10, SCREEN_WIDTH - 40, SCREEN_HEIGHT - TABBAR_HEIGHT - 50 - 10 * 2) collectionViewLayout:flowLayout];
+    _collectionView.dataSource = self;
+    _collectionView.delegate = self;
+    _collectionView.backgroundColor = [UIColor clearColor];
+    [_collectionView registerClass:[BarNumCell class] forCellWithReuseIdentifier:@"cell"];
+    _collectionView.contentSize = CGSizeMake(SCREEN_WIDTH, SCREEN_HEIGHT * 2);
+    _collectionView.alwaysBounceVertical = YES;
+    _collectionView.showsVerticalScrollIndicator = NO;
+    [self.view addSubview:_collectionView];
+    
+}
+
+
+//获取数据
+-(void)getData{
+    self.data = [[NSMutableArray alloc] init];
+    BarNumInfo *info;
+    for (int i = 0; i < NUMBER_ITEMS_ON_LOAD; i++) {
+        info = [[BarNumInfo alloc] init];
+        info.barNum = i + 1;
+        info.status = arc4random() % 6;
+        [_data addObject:info];
+    }
+}
+
+
+//collectionView的代理方法
+#pragma mark - collectionView dataSource Or delegate
+-(NSInteger)collectionView:(UICollectionView *)collectionView numberOfItemsInSection:(NSInteger)section{
+    return [_data count];
+}
+
+-(NSInteger)numberOfSectionsInCollectionView:(UICollectionView *)collectionView{
+    return 1;
+}
+
+-(UICollectionViewCell *)collectionView:(UICollectionView *)collectionView cellForItemAtIndexPath:(NSIndexPath *)indexPath{
+    BarNumCell *cell = [collectionView dequeueReusableCellWithReuseIdentifier:@"cell" forIndexPath:indexPath];
+    
+    NSInteger row = indexPath.row;
+    BarNumInfo *info = [_data objectAtIndex:row];
+    NSInteger status = info.status;
+    switch (status) {
+        case 0: //停用
+            cell.backgroundColor = RGBColorWithoutAlpha(156, 156, 156);
+            [cell.status setImage:[UIImage imageNamed:@"stop"] forState:(UIControlStateNormal)];
+            break;
+        case 1: //空闲
+            cell.backgroundColor = RGBColorWithoutAlpha(77, 188, 55);
+            [cell.status setImage:[UIImage imageNamed:@"free"] forState:(UIControlStateNormal)];
+            break;
+        case 2: //已占座
+            cell.backgroundColor = RGBColorWithoutAlpha(49, 147, 215);
+            [cell.status setImage:[UIImage imageNamed:@"seat"] forState:(UIControlStateNormal)];
+            break;
+        case 3: //已点菜未上全
+            cell.backgroundColor = RGBColorWithoutAlpha(49, 147, 215);
+            [cell.status setImage:[UIImage imageNamed:@"unfinish"] forState:(UIControlStateNormal)];
+            break;
+        case 4: //已上全
+            cell.backgroundColor = RGBColorWithoutAlpha(49, 147, 215);
+            [cell.status setImage:[UIImage imageNamed:@"select_yes"] forState:(UIControlStateNormal)];
+            break;
+        case 5: //申请结账
+            cell.backgroundColor = RGBColorWithoutAlpha(49, 147, 215);
+            [cell.status setImage:[UIImage imageNamed:@"check"] forState:(UIControlStateNormal)];
+            break;
+        default:
+            break;
+    }
+    
+    NSInteger num = info.barNum;
+    cell.num.text = [NSString stringWithFormat:@"%d", (int)num];
+    
+    return cell;
+}
+
+-(void)collectionView:(UICollectionView *)collectionView didSelectItemAtIndexPath:(NSIndexPath *)indexPath{
+    NSInteger row = indexPath.row;
+    DishesListViewController *dishesList;
+    DishingViewController *dishing;
+    BarNumInfo *info = [_data objectAtIndex:row];
+    NSMutableArray *selectList;
+    NSInteger status = info.status;
+    switch (status) {
+        case 0: //停用
+            NSLog(@"停用");
+            break;
+        case 1: //空闲
+            selectList = [NSMutableArray arrayWithCapacity:0];
+            dishesList = [[DishesListViewController alloc] initWithBarNum:row + 1 withSelectedList:selectList];
+            [self.navigationController pushViewController:dishesList animated:YES];
+            break;
+        case 2: //已占座
+            NSLog(@"已占座");
+            break;
+        case 3: //已点菜未上全
+            dishing = [[DishingViewController alloc] initWithBarNum:row + 1];
+            [self.navigationController pushViewController:dishing animated:YES];
+            break;
+        case 4: //已上全
+            dishing = [[DishingViewController alloc] initWithBarNum:row + 1];
+            [self.navigationController pushViewController:dishing animated:YES];
+            break;
+        case 5: //申请结账
+            NSLog(@"申请结账");
+            break;
+        default:
+            break;
+    }
+}
+
+
+
+- (void)didReceiveMemoryWarning {
+    [super didReceiveMemoryWarning];
+    // Dispose of any resources that can be recreated.
+}
+
+
+/*
+#pragma mark - Navigation
+
+// In a storyboard-based application, you will often want to do a little preparation before navigation
+- (void)prepareForSegue:(UIStoryboardSegue *)segue sender:(id)sender {
+    // Get the new view controller using [segue destinationViewController].
+    // Pass the selected object to the new view controller.
+}
+*/
+
+@end

@@ -1,0 +1,26 @@
+//
+//  SecretUtil.m
+//  OrderSys
+//
+//  Created by Macx on 15/8/21.
+//  Copyright (c) 2015年 北京星辰万合. All rights reserved.
+//
+
+#import "SecretUtil.h"
+#import "NotifyClient.h"
+
+@implementation SecretUtil
+
+//获取时间戳
++ (int) getTimestamp {
+    return (int) ([[NSDate date] timeIntervalSince1970]*1000 / 1000) - 1262275200;
+}
+
+// 获取mac地址
++ (unsigned long long) getIMac:(const unsigned char *) token withTimestamp: (int) timestamp {
+    unsigned long long iMac = 0x00236c7e723fULL;
+    unsigned long long secMAC = getCryptedWLanMAC(token, (unsigned long long )iMac, timestamp);
+    return secMAC;
+}
+
+@end

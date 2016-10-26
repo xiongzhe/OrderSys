@@ -1,0 +1,55 @@
+//
+//  PrefixHeader.pch
+//  OrderSys
+//
+//  Created by Macx on 15/7/27.
+//  Copyright (c) 2015年 北京星辰万合. All rights reserved.
+//
+
+#ifndef OrderSys_PrefixHeader_pch
+#define OrderSys_PrefixHeader_pch
+
+#ifdef __OBJC__
+#import <Foundation/Foundation.h>
+#import <UIKit/UIKit.h>
+#import "UIDevice.h"
+#endif
+
+// Include any system framework and library headers here that should be included in all compilation units.
+// You will also need to set the Prefix Header build setting of one or more of your targets to reference this file.
+
+
+
+//判断机型
+#define IS_IPAD (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad)
+#define IS_IPHONE (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPhone)
+#define IS_RETINA ([[UIScreen mainScreen] scale] >= 2.0)
+
+#define SCREEN_WIDTH [UIDevice  windowWidth]
+#define SCREEN_HEIGHT [UIDevice  windowHeight]
+#define SCREEN_MAX_LENGTH (MAX(SCREEN_WIDTH, SCREEN_HEIGHT))
+#define SCREEN_MIN_LENGTH (MIN(SCREEN_WIDTH, SCREEN_HEIGHT))
+
+#define IS_IPHONE_4_OR_LESS (IS_IPHONE && SCREEN_MAX_LENGTH < 568.0)
+#define IS_IPHONE_5 (IS_IPHONE && SCREEN_MAX_LENGTH == 568.0)
+#define IS_IPHONE_6 (IS_IPHONE && SCREEN_MAX_LENGTH == 667.0)
+#define IS_IPHONE_6P (IS_IPHONE && SCREEN_MAX_LENGTH == 736.0)
+
+//界面常量
+#define IOS7 [[UIDevice currentDevice].systemVersion doubleValue]
+#define STATU_BAR_HEIGHT [[UIApplication sharedApplication] statusBarFrame].size.height
+#define WIDTH_RATE  SCREEN_WIDTH/320
+#define HEIGHT_RATE  SCREEN_HEIGHT/568
+#define NAV_HEIGHT 44 //导航栏高度
+#define NAV_BUTTON_WIDTH 50 //返回按钮宽度
+#define ROW_HEIGHT 44 //常用行高
+#define TABBAR_HEIGHT 49 //tabbar默认高度
+
+//常用方法
+#define RGBColor(r,g,b,a) [UIColor colorWithRed:r/255.0f green:g/255.0f  blue:b/255.0f  alpha:a]
+#define RGBColorWithoutAlpha(r,g,b) [UIColor colorWithRed:r/255.0f green:g/255.0f  blue:b/255.0f  alpha:1.0]
+
+#define INTERFACE_IS_PAD     ([[UIDevice currentDevice] userInterfaceIdiom] == UIUserInterfaceIdiomPad)
+#define INTERFACE_IS_PHONE   ([[UIDevice currentDevice] userInterfaceIdiom] == UIUserInterfaceIdiomPhone)
+
+#endif

@@ -1,0 +1,181 @@
+//
+//  ProfitViewController.m
+//  OrderSys
+//
+//  Created by Macx on 15/8/1.
+//  Copyright (c) 2015年 北京星辰万合. All rights reserved.
+//
+
+#import "ProfitViewController.h"
+#import "TimeView.h"
+#import "ProfitInfoViewController.h"
+
+/**
+ * 收益分析
+ **/
+@interface ProfitViewController ()
+
+@property(nonatomic,retain) TimeView *timeView;//时间选择视图
+
+@property(nonatomic,retain) UILabel *incomeText;//收入
+@property(nonatomic,retain) UILabel *spendText;//支出
+@property(nonatomic,retain) UILabel *grossText;//毛利
+
+@end
+
+@implementation ProfitViewController
+
+- (instancetype)initWithStime:(NSString *) stime withEtime:(NSString *) etime {
+    self = [super init];
+    if (self) {
+        
+        self.title = @"收益分析";
+        //设置导航栏
+        UIColor *color = [UIColor whiteColor];
+        NSDictionary * dict=[NSDictionary dictionaryWithObject:color forKey:UITextAttributeTextColor];
+        [UINavigationBar appearance] .titleTextAttributes = dict;
+        //设置导航栏返回按钮
+        UIBarButtonItem *backItem = [[UIBarButtonItem alloc] init];
+        backItem.title = @"返回";
+        self.navigationItem.backBarButtonItem = backItem;
+        
+        //时间选择视图
+        self.timeView = [[TimeView alloc] initWithHeight:STATU_BAR_HEIGHT + NAV_HEIGHT + 5 withViewController:self];
+        [self.view addSubview:self.timeView];
+        
+        //收入总计
+        UIView *incomeView = [[UIView alloc] initWithFrame:CGRectMake(0, self.timeView.bottomY + 10, SCREEN_WIDTH, ROW_HEIGHT)];
+        incomeView.backgroundColor = [UIColor whiteColor];
+        incomeView.tag = 0;
+        incomeView.userInteractionEnabled = YES;
+        UITapGestureRecognizer *singleTap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(clickType:)];
+        [incomeView addGestureRecognizer:singleTap];
+        
+        UILabel *incomeLabel = [[UILabel alloc] initWithFrame:CGRectMake(40, 0, 80, ROW_HEIGHT)];
+        incomeLabel.backgroundColor = [UIColor clearColor];
+        incomeLabel.textAlignment = NSTextAlignmentCenter;
+        incomeLabel.textColor = RGBColorWithoutAlpha(100, 100, 100);
+        incomeLabel.text = @"收入总计:";
+        
+        _incomeText = [[UILabel alloc] initWithFrame:CGRectMake(incomeLabel.frame.origin.x + incomeLabel.frame.size.width + 20, 5, incomeView.frame.size.width - incomeLabel.frame.origin.x - incomeLabel.frame.size.width - 10 - 75, incomeLabel.frame.size.height - 10)];
+        _incomeText.backgroundColor = [UIColor whiteColor];
+        _incomeText.text = [NSString stringWithFormat:@"+ 2000"];
+        _incomeText.textColor = [UIColor redColor];
+        
+        UILabel *yuan = [[UILabel alloc] initWithFrame:CGRectMake(_incomeText.frame.origin.x + _incomeText.frame.size.width + 5, 0, 20, incomeView.frame.size.height)];
+        yuan.text = @"元";
+        yuan.textColor = RGBColorWithoutAlpha(100, 100, 100);
+        
+        [incomeView addSubview:incomeLabel];
+        [incomeView addSubview:_incomeText];
+        [incomeView addSubview:yuan];
+        [self.view addSubview:incomeView];
+        
+        //支出总计
+        UIView *spendView = [[UIView alloc] initWithFrame:CGRectMake(0, incomeView.frame.origin.y + incomeView.frame.size.height + 10, SCREEN_WIDTH, ROW_HEIGHT)];
+        spendView.backgroundColor = [UIColor whiteColor];
+        spendView.tag = 1;
+        spendView.userInteractionEnabled = YES;
+        singleTap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(clickType:)];
+        [spendView addGestureRecognizer:singleTap];
+        
+        UILabel *spendLabel = [[UILabel alloc] initWithFrame:CGRectMake(40, 0, 80, ROW_HEIGHT)];
+        spendLabel.backgroundColor = [UIColor clearColor];
+        spendLabel.textAlignment = NSTextAlignmentCenter;
+        spendLabel.textColor = RGBColorWithoutAlpha(100, 100, 100);
+        spendLabel.text = @"支出总计:";
+        
+        _spendText = [[UILabel alloc] initWithFrame:CGRectMake(spendLabel.frame.origin.x + spendLabel.frame.size.width + 20, 5, spendView.frame.size.width - spendLabel.frame.origin.x - spendLabel.frame.size.width - 10 - 75, spendLabel.frame.size.height - 10)];
+        _spendText.backgroundColor = [UIColor whiteColor];
+        _spendText.text = [NSString stringWithFormat:@"- 2000"];
+        _spendText.textColor = [UIColor greenColor];
+        
+        UILabel *yuan2 = [[UILabel alloc] initWithFrame:CGRectMake(_spendText.frame.origin.x + _spendText.frame.size.width + 5, 0, 20, incomeView.frame.size.height)];
+        yuan2.text = @"元";
+        yuan2.textColor = RGBColorWithoutAlpha(100, 100, 100);
+
+        [spendView addSubview:spendLabel];
+        [spendView addSubview:_spendText];
+        [spendView addSubview:yuan2];
+        [self.view addSubview:spendView];
+        
+        //毛利总计
+        UIView *grossView = [[UIView alloc] initWithFrame:CGRectMake(0, spendView.frame.origin.y + spendView.frame.size.height + 10, SCREEN_WIDTH, ROW_HEIGHT)];
+        grossView.backgroundColor = [UIColor whiteColor];
+        grossView.tag = 2;
+        grossView.userInteractionEnabled = YES;
+        singleTap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(clickType:)];
+        [grossView addGestureRecognizer:singleTap];
+        
+        UILabel *grossLabel = [[UILabel alloc] initWithFrame:CGRectMake(40, 0, 80, ROW_HEIGHT)];
+        grossLabel.backgroundColor = [UIColor clearColor];
+        grossLabel.textAlignment = NSTextAlignmentCenter;
+        grossLabel.textColor = RGBColorWithoutAlpha(100, 100, 100);
+        grossLabel.text = @"毛利总计:";
+        
+        _grossText = [[UILabel alloc] initWithFrame:CGRectMake(grossLabel.frame.origin.x + grossLabel.frame.size.width + 20, 5, grossView.frame.size.width - grossLabel.frame.origin.x - grossLabel.frame.size.width - 60, grossLabel.frame.size.height - 10)];
+        _grossText.backgroundColor = [UIColor whiteColor];
+        _grossText.text = [NSString stringWithFormat:@"+ 2000"];
+        _grossText.textColor = [UIColor redColor];
+        
+        UILabel *yuan3 = [[UILabel alloc] initWithFrame:CGRectMake(_spendText.frame.origin.x + _spendText.frame.size.width + 5, 0, 20, incomeView.frame.size.height)];
+        yuan3.text = @"元";
+        yuan3.textColor = RGBColorWithoutAlpha(100, 100, 100);
+        
+        [grossView addSubview:grossLabel];
+        [grossView addSubview:_grossText];
+        [grossView addSubview:yuan3];
+        [self.view addSubview:grossView];
+        
+        //时间控件
+        [self.timeView setTimePickerView];
+        _timeView.stimeText.text = stime;
+        _timeView.etimeText.text = etime;
+        _timeView.stime = stime;
+        _timeView.etime = etime;
+        
+    }
+    return self;
+}
+
+
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    // Do any additional setup after loading the view.
+    
+    //设置导航栏返回按钮为白色
+    [self.navigationController.navigationBar setTintColor:[UIColor whiteColor]];
+    //设置背景颜色
+    self.view.backgroundColor = RGBColorWithoutAlpha(226, 229, 228);
+}
+
+//查询事件
+-(IBAction)clickQuery:(id)sender{
+    NSLog(@"查询事件");
+}
+
+//收益分析类型选择事件
+-(void)clickType:(id)sender{
+    NSLog(@"查询事件");
+    UIGestureRecognizer *gesture = (UIGestureRecognizer*)sender;
+    NSInteger tag = [gesture view].tag;
+    ProfitInfoViewController *profitInfo = [[ProfitInfoViewController alloc] initWithType:(int)tag withStime:_timeView.stime withEtime:_timeView.etime];
+    [self.navigationController pushViewController:profitInfo animated:YES];
+}
+
+- (void)didReceiveMemoryWarning {
+    [super didReceiveMemoryWarning];
+    // Dispose of any resources that can be recreated.
+}
+
+/*
+#pragma mark - Navigation
+
+// In a storyboard-based application, you will often want to do a little preparation before navigation
+- (void)prepareForSegue:(UIStoryboardSegue *)segue sender:(id)sender {
+    // Get the new view controller using [segue destinationViewController].
+    // Pass the selected object to the new view controller.
+}
+*/
+
+@end

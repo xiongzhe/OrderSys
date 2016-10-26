@@ -1,0 +1,298 @@
+//
+//  WHInterfaceUtil.m
+//  TestLabManager
+//
+//  Created by 张润潮 on 14-9-22.
+//  Copyright (c) 2014年 xingchen. All rights reserved.
+//
+
+#import "WHInterfaceUtil.h"
+#import "ASIFormDataRequest.h"
+
+@implementation WHInterfaceUtil
+
+//接口url
++(NSString*) serverPath{
+    return @"http://210.14.154.178:18890";
+}
+
++(NSString *) stringToJsonString:(NSString *) name withValue:(NSString *) value{
+    return [NSString stringWithFormat:@"\"%@\":\"%@\"",name,value];
+}
+
++(NSString *) charPointerToJsonString:(NSString *) name withValue:(char *) value{
+    return [NSString stringWithFormat:@"\"%@\":\"%s\"",name,value];
+}
+
++(NSString *) intToJsonString:(NSString *) name withValue:(int) value{
+    return [NSString stringWithFormat:@"\"%@\":%d",name,value];
+}
+
++(NSString *) longToJsonString:(NSString *) name withValue:(long long) value{
+    return [NSString stringWithFormat:@"\"%@\":%lld",name,value];
+}
+
++(NSString *) byteArrayToJsonString:(NSString *) name withValue:(  char  *) value withLength:(int) length{
+    char * buffer =  malloc(length*10)+100;
+    char * ptr = buffer;
+    
+    ptr+=sprintf(ptr,"[%d",  value[0] );
+    
+    for (int i =1 ;i<length;i++)
+    {
+        ptr+=sprintf(ptr,",%d",  value[i] );
+    }
+   
+    *ptr=']';
+    ptr++;
+    *ptr=0;
+    
+    NSString * ret = [NSString stringWithFormat:@"\"%@\":%s",name,buffer];
+  //  ::free(buffer);
+    return ret;
+}
+
+
+//拼接接口url
++(NSString*) serverUrlSuffix:(NSString*) suffix{
+    NSString *serverPath=[[NSString alloc] initWithFormat:@"%@/%@",[WHInterfaceUtil serverPath],suffix];
+    return serverPath;
+}
+
+
+//解析接口参数（参数是个字符串）
++(NSString *) jsonStringWithString:(NSString *) string{
+    return [NSString stringWithFormat:@"\"%@\"",
+            [[string stringByReplacingOccurrencesOfString:@"\n" withString:@"\\n"] stringByReplacingOccurrencesOfString:@"\""withString:@"\\\""]
+            ];
+}
+
+//解析接口参数（参数是个array）
++(NSString *) jsonStringWithArray:(NSArray *)array{
+    NSMutableString *reString = [NSMutableString string];
+    [reString appendString:@"["];
+    NSMutableArray *values = [NSMutableArray array];
+    for (id valueObj in array) {
+        NSString *value = [WHInterfaceUtil jsonStringWithObject:valueObj];
+        if (value) {
+            [values addObject:[NSString stringWithFormat:@"%@",value]];
+        }
+    }
+    [reString appendFormat:@"%@",[values componentsJoinedByString:@","]];
+    [reString appendString:@"]"];
+    return reString;
+}
+
+//解析接口参数（参数是个dictionary）
++(NSString *) jsonStringWithDictionary:(NSDictionary *)dictionary{
+    NSArray *keys = [dictionary allKeys];
+    NSMutableString *reString = [NSMutableString string];
+    [reString appendString:@"{"];
+    NSMutableArray *keyValues = [NSMutableArray array];
+    for (int i=0; i<[keys count]; i++) {
+        NSString *name = [keys objectAtIndex:i];
+        id valueObj = [dictionary objectForKey:name];
+        NSString *value = [WHInterfaceUtil jsonStringWithObject:valueObj];
+        if (value) {
+            [keyValues addObject:[NSString stringWithFormat:@"\"%@\":%@",name,value]];
+        }
+    }
+    [reString appendFormat:@"%@",[keyValues componentsJoinedByString:@","]];
+    [reString appendString:@"}"];
+    return reString;
+}
+
+//解析接口参数
++(NSString *) jsonStringWithObject:(id) object{
+    NSString *value = nil;
+    if (!object) {
+        return value;
+    }
+    if ([object isKindOfClass:[NSString class]]) {
+        value = [WHInterfaceUtil jsonStringWithString:object];
+    }else if([object isKindOfClass:[NSDictionary class]]){
+        value = [WHInterfaceUtil jsonStringWithDictionary:object];
+    }else if([object isKindOfClass:[NSArray class]]){
+        value = [WHInterfaceUtil jsonStringWithArray:object];
+    }
+    return value;
+}
+
+
+//判断接口返回值是否为空
++(BOOL) isValid:(NSObject*)obj{
+    if ((NSNull*)obj != [NSNull null]) {
+        return YES;
+    }else{
+        return NO;
+    }
+}
+
+//普通接口调用
++(NSDictionary*) sendMessageToServerUrlSuffix:(NSString*) url param:(NSDictionary*) param{
+    NSURL *u = [NSURL URLWithString:url];
+    ASIFormDataRequest *request =[ASIFormDataRequest requestWithURL:u];
+    [request setRequestMethod:@"POST"];
+    [request setValidatesSecureCertificate:NO];
+    if (param!=nil) {
+        for (NSString *key in param) {
+            [request addPostValue:param[key] forKey:key];
+        }
+    }
+    [request startSynchronous];
+    NSError *error1 = [request error];
+    NSData *resData = [request responseData];
+    if (!error1 && resData) { //获取成功
+        NSDictionary *dics = [NSJSONSerialization JSONObjectWithData:resData options:NSJSONReadingMutableLeaves error:nil];
+        return dics;
+    } else{ //获取失败
+        return nil;
+    }
+}
+
+
+//星辰万合框架专用
++(NSDictionary*) sendMessageToServerUrl:(NSString*) url param:(NSString*) param urlValue:(NSString*) value{
+    NSMutableData *tempJsonData = [NSMutableData dataWithData:nil];
+    NSString *urlStr = [self serverUrlSuffix:url];
+    NSURL *u = [NSURL URLWithString:urlStr];
+    ASIHTTPRequest *request = [ASIHTTPRequest requestWithURL:u];
+    if (param!=nil) {
+        NSData *jsonData = [param dataUsingEncoding: NSUTF8StringEncoding];
+        tempJsonData = [NSMutableData dataWithData:jsonData];
+    }
+    [request addRequestHeader:@"Content-Type" value:@"application/json; charset=utf-8"];
+    [request addRequestHeader:@"Accept" value:@"application/json"];
+    [request setRequestMethod:@"POST"];
+    [request setValidatesSecureCertificate:NO];
+    [request addRequestHeader:@"JSONAction" value:value];
+    [request setPostBody:tempJsonData];
+    [request startSynchronous];
+    NSError *error1 = [request error];
+    if (!error1) {
+        NSString *response = [request responseString];
+        response = [response stringByReplacingOccurrencesOfString:@"\r" withString:@""];
+        response = [response stringByReplacingOccurrencesOfString:@"\n" withString:@""];
+        response = [response stringByReplacingOccurrencesOfString:@"\t" withString:@""];
+        NSData *resData = [[NSData alloc] initWithData:[response dataUsingEncoding:NSUTF8StringEncoding]];
+        NSError *error = nil;
+        NSDictionary *dics = [NSJSONSerialization JSONObjectWithData:resData options:NSJSONReadingMutableLeaves error:&error];
+        if(dics != nil || [dics count] != 0){
+            return dics;
+        } else {
+            return nil;
+        }
+    }else{
+        NSLog(@"i'm error.%@",error1);
+    }
+    return nil;
+}
+
+//星辰万合框架专用(无返回数据)
++(BOOL) sendMessageToServerUrlNoResult:(NSString*) url param:(NSDictionary*) param urlValue:(NSString*) value{
+    NSMutableData *tempJsonData = [NSMutableData dataWithData:nil];
+    NSString *urlStr = [self serverUrlSuffix:url];
+    NSURL *u = [NSURL URLWithString:urlStr];
+    ASIHTTPRequest *request = [ASIHTTPRequest requestWithURL:u];
+    if (param!=nil) {
+        NSData *jsonData = [[self jsonStringWithDictionary:param] dataUsingEncoding: NSUTF8StringEncoding];
+        tempJsonData = [NSMutableData dataWithData:jsonData];
+    }
+    [request addRequestHeader:@"Content-Type" value:@"application/json; charset=utf-8"];
+    [request addRequestHeader:@"Accept" value:@"application/json"];
+    [request setRequestMethod:@"POST"];
+    [request setValidatesSecureCertificate:NO];
+    [request addRequestHeader:@"JSONAction" value:value];
+    [request setPostBody:tempJsonData];
+    [request startSynchronous];
+    NSError *error1 = [request error];
+    if (!error1) {
+        NSString *response = [request responseString];
+        response = [response stringByReplacingOccurrencesOfString:@"\r" withString:@""];
+        response = [response stringByReplacingOccurrencesOfString:@"\n" withString:@""];
+        response = [response stringByReplacingOccurrencesOfString:@"\t" withString:@""];
+        if([response isEqualToString:[[NSString alloc]  initWithFormat:@"Success"]]){
+            return YES;
+        } else {
+            return NO;
+        }
+    }else{
+        NSLog(@"i'm error.%@",error1);
+    }
+    return NO;
+}
+
+
+
+/*
+ 调用通用信息生活服务webservice
+ //Mark: 生成SOAP1.1版本的ASIHttp请求
+ 参数 webURL：                远程WebService的地址，不含*.asmx
+ 参数 webServiceFile：        远程WebService的访问文件名，如service.asmx
+ 参数 xmlNS：                    远程WebService的命名空间
+ 参数 webServiceName：        远程WebService的名称
+ 参数 wsParameters：            调用参数数组，形式为[参数1名称，参数1值，参数2名称，参数2值⋯⋯]，如果没有调用参数，此参数为nil
+ */
++ (NSString *)getASISOAP11Request:(NSString*) date{
+    NSString *WebURL = @"http://www.ccpn.gov.cn/Service/";
+    NSString *wsFile = @"PriceService.asmx";
+    NSString *xmlNS = @"http://ccpn.gpv/";
+    NSString *wsName = @"GetPublicPrice";
+    NSMutableArray *wsParas = [[NSMutableArray alloc] initWithObjects:@"userAccount",@"shequfuwu",@"password",@"shequfuwu96156",@"priceDate",date,@"priceType",@"1", nil];
+    
+    //1、初始化SOAP消息体
+    NSString * soapMsgBody1 = [[NSString alloc] initWithFormat:
+                               @"<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
+                               "<soap:Envelope xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" \n"
+                               "xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" \n"
+                               "xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\">\n"
+                               "<soap:Body>\n"
+                               "<%@ xmlns=\"%@\">\n", wsName, xmlNS];
+    NSString * soapMsgBody2 = [[NSString alloc] initWithFormat:
+                               @"</%@>\n"
+                               "</soap:Body>\n"
+                               "</soap:Envelope>", wsName];
+    
+    //2、生成SOAP调用参数
+    NSString * soapParas = [[NSString alloc] init];
+    soapParas = @"";
+    if (![wsParas isEqual:nil]) {
+        int i = 0;
+        for (i = 0; i < [wsParas count]/2; i ++) {
+            soapParas = [soapParas stringByAppendingFormat:@"<%@>%@</%@>\n",
+                         [wsParas objectAtIndex:2*i],
+                         [wsParas objectAtIndex:2*i+1],
+                         [wsParas objectAtIndex:2*i]];
+        }
+    }
+    
+    //3、生成SOAP消息
+    NSString * soapMsg = [soapMsgBody1 stringByAppendingFormat:@"%@%@", soapParas, soapMsgBody2];
+    
+    //请求发送到的路径
+    NSURL * url = [NSURL URLWithString:[NSString stringWithFormat:@"%@%@", WebURL, wsFile]];
+    ASIHTTPRequest * theRequest = [ASIHTTPRequest requestWithURL:url];
+    NSString *msgLength = [NSString stringWithFormat:@"%d", [soapMsg length]];
+    
+    //以下对请求信息添加属性前四句是必有的，第五句是soap信息。
+    [theRequest addRequestHeader:@"Content-Type" value:@"text/xml; charset=utf-8"];
+    [theRequest addRequestHeader:@"SOAPAction" value:[NSString stringWithFormat:@"%@%@", xmlNS, wsName]];
+    [theRequest addRequestHeader:@"Content-Length" value:msgLength];
+    [theRequest setRequestMethod:@"POST"];
+    [theRequest appendPostData:[soapMsg dataUsingEncoding:NSUTF8StringEncoding]];
+    [theRequest setDefaultResponseEncoding:NSUTF8StringEncoding];
+    
+    //显示网络请求信息在status bar上
+    [ASIHTTPRequest setShouldUpdateNetworkActivityIndicator:YES];
+    
+    //同步调用
+    [theRequest startSynchronous];
+    NSError *error = [theRequest error];
+    if (!error) {
+        NSString *response =  [theRequest responseString];
+        return response;
+    }
+    return nil;
+}
+
+@end

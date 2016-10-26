@@ -1,0 +1,22 @@
+//
+//  PopView.h
+//  OrderSys
+//
+//  Created by Macx on 15/8/19.
+//  Copyright (c) 2015年 北京星辰万合. All rights reserved.
+//
+
+#import <UIKit/UIKit.h>
+
+@interface PopListView : UIView
+
+@property(nonatomic,retain) NSArray *datas;//数据列表
+@property(nonatomic,retain) UILabel *showView;//显示视图
+@property(nonatomic,assign) NSInteger type; //类型
+
+
+- (instancetype)initWithFrame:(CGRect)frame withShowView:(UILabel *) showView withArray:(NSArray *) datas withBackgroundColor:(UIColor *) backColor;
+
+- (void) addTypesLabels;
+
+@end

@@ -1,0 +1,126 @@
+//
+//  DIshesListCell.m
+//  OrderSys
+//
+//  Created by Macx on 15/8/13.
+//  Copyright (c) 2015年 北京星辰万合. All rights reserved.
+//
+
+#import "DishesListCell.h"
+#import "DishesListInfo.h"
+
+/**
+ * 菜品列表cell
+ **/
+@implementation DishesListCell
+
+- (void)awakeFromNib {
+    // Initialization code
+}
+
+- (void)setSelected:(BOOL)selected animated:(BOOL)animated {
+    [super setSelected:selected animated:animated];
+
+    // Configure the view for the selected state
+}
+
+- (id)initWithStyle:(UITableViewCellStyle)style reuseIdentifier:(NSString *)reuseIdentifier withCellHeight:(CGFloat) cellHeight{
+    if (WIDTH_RATE >1 && WIDTH_RATE < 1.5) {
+        _width = 375.0;
+    }else if(WIDTH_RATE>1.5){
+        _width = 621.0;
+    }else if(WIDTH_RATE ==1){
+        _width = 320.0;
+    }else{
+        //_width = 100;
+    }
+    
+    self = [super initWithStyle:style reuseIdentifier:reuseIdentifier];
+    if (self){
+        
+        CGFloat width = _width * 2/3; //cell宽度
+        
+        //菜品图片
+        self.image = [[DBImageView alloc] initWithFrame:CGRectMake(5, 5, width * 1/3, cellHeight - 10 - 0.5)];
+        //self.image.contentMode=UIViewContentModeScaleAspectFit;
+        self.image.contentMode=UIViewContentModeScaleAspectFill;
+        [self.image setImage:[UIImage imageNamed:@"select_yes"]];
+        [self.contentView addSubview:self.image];
+        
+        //右侧视图
+        UIView *rightView = [[UIView alloc] initWithFrame:CGRectMake(self.image.frame.origin.x + self.image.frame.size.width + 5, 5, width * 2/3 - 15, cellHeight - 10 - 0.5)];
+        
+        //菜品名称
+        self.nameLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 0, rightView.frame.size.width/2, rightView.frame.size.height/3)];
+        self.nameLabel.textAlignment = NSTextAlignmentLeft;
+        self.nameLabel.textColor = RGBColorWithoutAlpha(100, 100, 100);
+        self.nameLabel.backgroundColor = [UIColor clearColor];
+        self.nameLabel.font = [UIFont systemFontOfSize:16];
+        self.nameLabel.text = @"毛肚";
+        [rightView addSubview:self.nameLabel];
+        
+        //菜品优惠券标识
+        self.couponsButton = [[UIButton alloc] initWithFrame:CGRectMake(self.nameLabel.frame.origin.x + self.nameLabel.frame.size.width + 5, 0, rightView.frame.size.width/3, rightView.frame.size.height/3)];
+        self.couponsButton.userInteractionEnabled = NO;
+        [self.couponsButton setImage:[UIImage imageNamed:@"select_yes"] forState:(UIControlStateNormal)];
+        [rightView addSubview:self.couponsButton];
+        
+        
+        //菜品价格
+        self.priceLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, rightView.frame.size.height * 2/3, rightView.frame.size.width/2, rightView.frame.size.height/3)];
+        self.priceLabel.textAlignment = NSTextAlignmentLeft;
+        self.priceLabel.textColor = [UIColor redColor];
+        self.priceLabel.text = @"$20.5";
+        self.priceLabel.backgroundColor = [UIColor clearColor];
+        self.priceLabel.font = [UIFont systemFontOfSize:16];
+        [rightView addSubview:self.priceLabel];
+        
+        
+        //加减菜品视图
+        UIView *oprationView = [[UIView alloc] initWithFrame:CGRectMake(rightView.frame.size.height *2/3, rightView.frame.size.height * 2/3, rightView.frame.size.width/2, rightView.frame.size.height/3)];
+        
+        //减号
+        self.busButton = [[UIButton alloc] initWithFrame:CGRectMake(0, 0, oprationView.frame.size.width/3, oprationView.frame.size.height)];
+        self.busButton.userInteractionEnabled = YES;
+        [self.busButton setImage:[UIImage imageNamed:@"select_no"] forState:(UIControlStateNormal)];
+        [oprationView addSubview:self.busButton];
+        
+        //点餐份数
+        self.numLabel = [[UILabel alloc] initWithFrame:CGRectMake(oprationView.frame.size.width/3, 0, oprationView.frame.size.width/3, oprationView.frame.size.height)];
+        self.numLabel.textAlignment = NSTextAlignmentCenter;
+        self.numLabel.textColor = [UIColor blackColor];
+        self.numLabel.text = @"2";
+        self.numLabel.backgroundColor = [UIColor clearColor];
+        self.numLabel.font = [UIFont systemFontOfSize:16];
+        [oprationView addSubview:self.numLabel];
+
+        //加号
+        self.plusButton = [[UIButton alloc] initWithFrame:CGRectMake(oprationView.frame.size.width * 2/3, 0, oprationView.frame.size.width/3, rightView.frame.size.height/3)];
+        self.plusButton.userInteractionEnabled = YES;
+        [self.plusButton setImage:[UIImage imageNamed:@"select_yes"] forState:(UIControlStateNormal)];
+        [oprationView addSubview:self.plusButton];
+        
+        [rightView addSubview:oprationView];
+        [self.contentView addSubview:rightView];
+        
+        
+        //分割线
+        self.dividerView = [[UIView alloc] initWithFrame:CGRectMake(0, self.image.frame.origin.y + self.image.frame.size.height + 5, _width, 0.5)];
+        self.dividerView.backgroundColor = RGBColor(235.0, 235.0, 235.0, 1.0);
+        [self.contentView addSubview:self.dividerView];
+        
+        self.contentView.backgroundColor = [UIColor clearColor];
+        
+        //售空视图
+        _overLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 0, width, cellHeight)];
+        _overLabel.text = @"已售空";
+        _overLabel.textColor = [UIColor whiteColor];
+        _overLabel.textAlignment = NSTextAlignmentCenter;
+        _overLabel.backgroundColor = RGBColor(100, 100, 100, 0.7);
+        _overLabel.hidden = YES;
+        [self.contentView addSubview:_overLabel];
+    }
+    return self;
+}
+
+@end

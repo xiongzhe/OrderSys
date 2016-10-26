@@ -1,0 +1,452 @@
+//
+//  EditCouponsViewController.m
+//  OrderSys
+//
+//  Created by Macx on 15/8/6.
+//  Copyright (c) 2015年 北京星辰万合. All rights reserved.
+//
+
+#import "EditCouponsViewController.h"
+#import "ButtonView.h"
+#import "CouponsTypeInfo.h"
+#import "PopTableCell.h"
+
+/**
+ * 编辑优惠券页面（编辑、创建）
+ **/
+@interface EditCouponsViewController ()<UITextFieldDelegate, UITableViewDataSource,UITableViewDelegate>
+
+@property (nonatomic,assign) NSInteger type; //页面类型 0 创建 1 编辑
+@property(nonatomic,retain) UIView *typesView; //类型选择布局
+@property(nonatomic,retain) UITextField *typeText; //收入类型
+@property(nonatomic,retain) ButtonView *oneButton;
+@property(nonatomic,retain) ButtonView *twoButton;
+@property(nonatomic,retain) ButtonView *threeButton;
+@property(nonatomic,retain) ButtonView *fourButton;
+@property(nonatomic,retain) ButtonView *fiveButton;
+@property(nonatomic,retain) ButtonView *sixButton;
+
+@property(nonatomic,assign) NSInteger isOne;// 0 未选 1 已选
+@property(nonatomic,assign) NSInteger isTwo;
+@property(nonatomic,assign) NSInteger isThree;
+@property(nonatomic,assign) NSInteger isFour;
+@property(nonatomic,assign) NSInteger isFive;
+@property(nonatomic,assign) NSInteger isSix;
+@property (nonatomic, retain) NSMutableArray *typesList; //菜品类型列表数据
+@property (nonatomic, retain) UITableView *typesTableView;
+@property (nonatomic, assign) CGFloat typesCellWidth; //typesTableView宽度
+
+@end
+
+@implementation EditCouponsViewController
+
+- (instancetype)initWithType:(NSInteger) type
+{
+    self = [super init];
+    if (self) {
+        
+        self.isOne = 0;
+        self.isTwo = 0;
+        self.isThree = 0;
+        self.isFour = 0;
+        self.isFive = 0;
+        self.isSix = 0;
+        
+        //设置导航栏
+        self.type = type;
+        if (type == 0) {
+            self.title = @"创建优惠券";
+        } else {
+            self.title = @"编辑优惠券";
+        }
+        UIColor *color = [UIColor whiteColor];
+        NSDictionary * dict=[NSDictionary dictionaryWithObject:color forKey:UITextAttributeTextColor];
+        [UINavigationBar appearance] .titleTextAttributes = dict;
+        //设置导航栏返回按钮
+        UIBarButtonItem *backItem = [[UIBarButtonItem alloc] init];
+        backItem.title = @"返回";
+        self.navigationItem.backBarButtonItem = backItem;
+        
+        //类型选择
+        UIView *typeView = [[UIView alloc] initWithFrame:CGRectMake(0, STATU_BAR_HEIGHT + NAV_HEIGHT + 10, SCREEN_WIDTH, ROW_HEIGHT)];
+        typeView.backgroundColor = [UIColor whiteColor];
+        typeView.userInteractionEnabled = YES;
+        UITapGestureRecognizer *singleTap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(clickTypes:)];
+        [typeView addGestureRecognizer:singleTap];
+        
+        UILabel *typeLabel = [[UILabel alloc] initWithFrame:CGRectMake(20, 0, 80, ROW_HEIGHT)];
+        typeLabel.backgroundColor = [UIColor clearColor];
+        typeLabel.textAlignment = NSTextAlignmentLeft;
+        typeLabel.textColor = RGBColorWithoutAlpha(100, 100, 100);
+        typeLabel.font = [UIFont systemFontOfSize:15.0];
+        typeLabel.text = @"优惠券类型";
+        [typeView addSubview:typeLabel];
+        
+        _typeText = [[UITextField alloc] initWithFrame:CGRectMake(typeLabel.frame.origin.x + typeLabel.frame.size.width, 7, SCREEN_WIDTH - typeLabel.frame.origin.x - typeLabel.frame.size.width - 20, ROW_HEIGHT - 14)];
+        _typeText.text = @"满减类";
+        _typeText.textColor = RGBColorWithoutAlpha(100, 100, 100);
+        _typeText.layer.cornerRadius = 2;
+        _typeText.backgroundColor = RGBColorWithoutAlpha(226, 229, 228);
+        _typeText.userInteractionEnabled = NO;
+        
+        UIButton *rightButton = [[UIButton alloc] initWithFrame:CGRectMake(0, 0, 30, _typeText.frame.size.height)];
+        [rightButton setImage:[UIImage imageNamed:@"red_array"] forState:UIControlStateNormal];
+        _typeText.rightView = rightButton;
+        _typeText.rightViewMode = UITextFieldViewModeAlways;
+        [typeView addSubview:_typeText];
+        
+        [self.view addSubview:typeView];
+        
+
+        //类型选择布局
+        _typesView = [[UIView alloc] initWithFrame:CGRectMake(typeLabel.frame.origin.x + typeLabel.frame.size.width + 20,typeView.frame.origin.y + typeView.frame.size.height + 20, _typeText.frame.size.width, 0.5+(ROW_HEIGHT + 0.5) * 4)];
+        [_typesView.layer setCornerRadius:5.0];
+        _typesView.backgroundColor = RGBColor(164, 50, 34, 1.0);
+        [_typesView setHidden:YES];
+        
+        
+        //优惠券涉及品类
+        UILabel *dishesLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, typeView.frame.origin.y + typeView.frame.size.height + 10, SCREEN_WIDTH, ROW_HEIGHT - 10)];
+        dishesLabel.backgroundColor = [UIColor clearColor];
+        dishesLabel.font = [UIFont systemFontOfSize:15.0];
+        dishesLabel.textAlignment = NSTextAlignmentLeft;
+        dishesLabel.textColor = RGBColorWithoutAlpha(100, 100, 100);
+        dishesLabel.text = @"    优惠券涉及品类";
+        [self.view addSubview:dishesLabel];
+        
+        //优惠券涉及品类视图
+        UIView *timesView = [[UIView alloc] initWithFrame:CGRectMake(0, dishesLabel.frame.origin.y + dishesLabel.frame.size.height, SCREEN_WIDTH, (ROW_HEIGHT - 5) * 2)];
+        timesView.backgroundColor = [UIColor whiteColor];
+        
+        CGFloat buttonWidth = 70;
+        CGFloat inset = (SCREEN_WIDTH - 20 * 2 - 70 * 3)/2;
+        //锅底
+        _oneButton = [[ButtonView alloc] initWithFrame:CGRectMake(20, 5, buttonWidth, timesView.frame.size.height/2 - 10) withType:0 withTag:0 withTitle:@"锅底"];
+        [_oneButton addTarget:self action:@selector(clickTimesType:) forControlEvents:UIControlEventTouchUpInside];
+        [timesView addSubview:_oneButton];
+        
+        //小料
+        _twoButton = [[ButtonView alloc] initWithFrame:CGRectMake(_oneButton.frame.origin.x + _oneButton.frame.size.width + inset, 5, buttonWidth, _oneButton.frame.size.height) withType:0 withTag:1 withTitle:@"小料"];
+        [_twoButton addTarget:self action:@selector(clickTimesType:) forControlEvents:UIControlEventTouchUpInside];
+        [timesView addSubview:_twoButton];
+        
+        //特色菜
+        _threeButton = [[ButtonView alloc] initWithFrame:CGRectMake(_twoButton.frame.origin.x + _twoButton.frame.size.width + inset, 5, buttonWidth, _oneButton.frame.size.height) withType:0 withTag:2 withTitle:@"特色菜"];
+        [_threeButton addTarget:self action:@selector(clickTimesType:) forControlEvents:UIControlEventTouchUpInside];
+        [timesView addSubview:_threeButton];
+        
+        //荤菜
+        _fourButton = [[ButtonView alloc] initWithFrame:CGRectMake(20, _oneButton.frame.origin.y + _oneButton.frame.size.height + 10, buttonWidth, _oneButton.frame.size.height) withType:0 withTag:3 withTitle:@"荤菜"];
+        [_fourButton addTarget:self action:@selector(clickTimesType:) forControlEvents:UIControlEventTouchUpInside];
+        [timesView addSubview:_fourButton];
+
+        //素菜
+        _fiveButton = [[ButtonView alloc] initWithFrame:CGRectMake(_fourButton.frame.origin.x + _fourButton.frame.size.width + inset, _oneButton.frame.origin.y + _oneButton.frame.size.height + 10, buttonWidth, _oneButton.frame.size.height) withType:0 withTag:4 withTitle:@"素菜"];
+        [_fiveButton addTarget:self action:@selector(clickTimesType:) forControlEvents:UIControlEventTouchUpInside];
+        [timesView addSubview:_fiveButton];
+        
+        //酒水饮料
+        _sixButton = [[ButtonView alloc] initWithFrame:CGRectMake(_fiveButton.frame.origin.x + _fiveButton.frame.size.width + inset, _oneButton.frame.origin.y + _oneButton.frame.size.height + 10, buttonWidth, _oneButton.frame.size.height) withType:0 withTag:5 withTitle:@"酒水饮料"];
+        [_sixButton addTarget:self action:@selector(clickTimesType:) forControlEvents:UIControlEventTouchUpInside];
+        [timesView addSubview:_sixButton];
+        [self.view addSubview:timesView];
+        
+        //优惠券金额
+        UILabel *moneyLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, timesView.frame.origin.y + timesView.frame.size.height + 10, SCREEN_WIDTH, ROW_HEIGHT - 10)];
+        moneyLabel.backgroundColor = [UIColor clearColor];
+        moneyLabel.font = [UIFont systemFontOfSize:15.0];
+        moneyLabel.textAlignment = NSTextAlignmentLeft;
+        moneyLabel.textColor = RGBColorWithoutAlpha(100, 100, 100);
+        moneyLabel.text = @"    优惠券金额";
+        [self.view addSubview:moneyLabel];
+        
+        
+        //满减类
+        UIView *subView = [[UIView alloc] initWithFrame:CGRectMake(0, moneyLabel.frame.origin.y + moneyLabel.frame.size.height, SCREEN_WIDTH, ROW_HEIGHT + 10)];
+        subView.backgroundColor = [UIColor whiteColor];
+        
+        UILabel *subLabel = [[UILabel alloc] initWithFrame:CGRectMake(10, 10, 85, subView.frame.size.height - 20)];
+        subLabel.backgroundColor = [UIColor clearColor];
+        subLabel.textAlignment = NSTextAlignmentLeft;
+        subLabel.textColor = RGBColorWithoutAlpha(100, 100, 100);
+        subLabel.font = [UIFont systemFontOfSize:16.0];
+        subLabel.text = @"满减类：满";
+        [subView addSubview:subLabel];
+        
+        CGFloat TfWidth = (SCREEN_WIDTH - 85 - 10 * 2 - 20 * 2 - 5 * 3)/2;
+        UITextField *fullTf = [[UITextField alloc] initWithFrame:CGRectMake(subLabel.frame.origin.x + subLabel.frame.size.width + 5, 10, TfWidth, subLabel.frame.size.height)];
+        fullTf.backgroundColor = RGBColorWithoutAlpha(230, 230, 230);
+        fullTf.borderStyle = UITextBorderStyleNone;
+        fullTf.layer.cornerRadius = 2;
+        [fullTf setClearButtonMode:UITextFieldViewModeWhileEditing];//右侧删除按钮
+        fullTf.text = [NSString stringWithFormat:@"%d", 20000];
+        fullTf.userInteractionEnabled = YES;
+        //设置键盘，使换行变为完成字样
+        fullTf.delegate = self;
+        fullTf.keyboardType = UIKeyboardAppearanceDefault;
+        fullTf.returnKeyType = UIReturnKeyDone;
+        [subView addSubview:fullTf];
+        
+        UILabel *jianLabel = [[UILabel alloc] initWithFrame:CGRectMake(fullTf.frame.origin.x + fullTf.frame.size.width + 5, 10, 20, subLabel.frame.size.height)];
+        jianLabel.backgroundColor = [UIColor clearColor];
+        jianLabel.textAlignment = NSTextAlignmentLeft;
+        jianLabel.textColor = RGBColorWithoutAlpha(100, 100, 100);
+        jianLabel.font = [UIFont systemFontOfSize:16.0];
+        jianLabel.text = @"减";
+        [subView addSubview:jianLabel];
+        
+        UITextField *jianTf = [[UITextField alloc] initWithFrame:CGRectMake(jianLabel.frame.origin.x + jianLabel.frame.size.width + 5, 10, TfWidth, subLabel.frame.size.height)];
+        jianTf.backgroundColor = RGBColorWithoutAlpha(230, 230, 230);
+        jianTf.borderStyle = UITextBorderStyleNone;
+        jianTf.layer.cornerRadius = 2;
+        [jianTf setClearButtonMode:UITextFieldViewModeWhileEditing];//右侧删除按钮
+        jianTf.text = [NSString stringWithFormat:@"%d", 20000];
+        jianTf.userInteractionEnabled = YES;
+        //设置键盘，使换行变为完成字样
+        jianTf.delegate = self;
+        jianTf.keyboardType = UIKeyboardAppearanceDefault;
+        jianTf.returnKeyType = UIReturnKeyDone;
+        [subView addSubview:jianTf];
+        
+        UILabel *yuanLabel = [[UILabel alloc] initWithFrame:CGRectMake(jianTf.frame.origin.x + jianTf.frame.size.width + 5, 10, 20, subLabel.frame.size.height)];
+        yuanLabel.backgroundColor = [UIColor clearColor];
+        yuanLabel.textAlignment = NSTextAlignmentLeft;
+        yuanLabel.textColor = RGBColorWithoutAlpha(100, 100, 100);
+        yuanLabel.font = [UIFont systemFontOfSize:16.0];
+        yuanLabel.text = @"元";
+        [subView addSubview:yuanLabel];
+        [self.view addSubview:subView];
+        
+        
+        //确认按钮
+        UIButton *confirmButton = [[UIButton alloc] initWithFrame:CGRectMake(40, SCREEN_HEIGHT - ROW_HEIGHT *3/2, SCREEN_WIDTH - 80, ROW_HEIGHT - 10)];
+        confirmButton.layer.cornerRadius = 5;
+        confirmButton.backgroundColor = [UIColor redColor];
+        [confirmButton setTitle:@"确　认" forState:UIControlStateNormal];
+        confirmButton.titleLabel.textColor = [UIColor whiteColor];
+        confirmButton.tag = 1;
+        [confirmButton addTarget:self action:@selector(clickConfirm:) forControlEvents:UIControlEventTouchUpInside];
+        [self.view addSubview:confirmButton];
+        
+        //列表
+        _typesCellWidth = _typeText.frame.size.width * 2/3;
+        _typesTableView = [[UITableView alloc] initWithFrame:CGRectMake(_typeText.frame.origin.x + _typesCellWidth/2, typeView.frame.origin.y + typeView.frame.size.height, _typesCellWidth, ROW_HEIGHT * 5) style:UITableViewStylePlain];
+        _typesTableView.dataSource = self;
+        _typesTableView.delegate = self;
+        _typesTableView.layer.cornerRadius = 5;
+        [_typesTableView setHidden:YES];
+        _typesTableView.backgroundColor = [UIColor clearColor];
+        _typesTableView.separatorStyle = UITableViewCellSeparatorStyleNone;
+        [self.view addSubview:_typesTableView];
+
+        [self.view addSubview:_typesView];
+        
+    }
+    return self;
+}
+
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    // Do any additional setup after loading the view.
+    
+    //设置导航栏返回按钮为白色
+    [self.navigationController.navigationBar setTintColor:[UIColor whiteColor]];
+    //设置背景颜色
+    self.view.backgroundColor = RGBColorWithoutAlpha(226, 229, 228);
+    
+    [self getTypesData];
+    
+}
+
+
+//创建并设置每行显示的内容
+- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
+    static NSString *CellWithIdentifier = @"TypeCell";
+    PopTableCell *cell = [tableView dequeueReusableCellWithIdentifier:CellWithIdentifier];
+    NSUInteger row = [indexPath row];
+    if (cell == nil) {
+        cell = [[PopTableCell alloc] initWithStyle:UITableViewCellStyleValue2 reuseIdentifier:CellWithIdentifier withCellWidth:_typesCellWidth withCellHeight:44];
+    }
+    CouponsTypeInfo *info = [self.typesList objectAtIndex:row];
+    cell.nameLabel.text = info.name;
+    cell.selectionStyle = UITableViewCellSelectionStyleNone;
+    cell.backgroundColor = [UIColor clearColor];
+    cell.backgroundView = nil;
+    return cell;
+}
+
+//内容分段
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView{
+    return 1;
+}
+
+//cell高度
+- (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath {
+    return 44;
+}
+
+//每个cell中显示多少行
+- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section{
+    return [_typesList count];
+}
+
+//列表点击事件
+- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath{
+    [_typesTableView setHidden:YES];
+    NSInteger row = indexPath.row;
+    CouponsTypeInfo *info = [_typesList objectAtIndex:row];
+    _typeText.text = info.name;
+}
+
+
+
+//点击类型事件
+-(IBAction)clickTypes:(id)sender {
+    NSLog(@"选择收入/支出类型");
+    if (_typesTableView.isHidden) {
+        [_typesTableView setHidden:NO];
+    } else{
+        [_typesTableView setHidden:YES];
+    }
+}
+
+//点击确认事件
+-(IBAction)clickConfirm:(id)sender{
+    NSLog(@"确认事件");
+    [self.navigationController popViewControllerAnimated:YES];
+}
+
+
+//选择优惠券涉及品类事件
+-(IBAction)clickTimesType:(id)sender{
+    UIButton *button = (UIButton *) sender;
+    NSInteger tag = button.tag;
+    switch (tag) {
+        case 0:
+            if (_isOne == 0) {
+                _isOne = 1;
+                [_oneButton setChooseType:1];
+            } else {
+                _isOne = 0;
+                [_oneButton setChooseType:0];
+            }
+            break;
+        case 1:
+            if (_isTwo == 0) {
+                _isTwo = 1;
+                [_twoButton setChooseType:1];
+            } else {
+                _isTwo = 0;
+                [_twoButton setChooseType:0];
+            }
+            break;
+        case 2:
+            if (_isThree == 0) {
+                _isThree = 1;
+                [_threeButton setChooseType:1];
+            } else {
+                _isThree = 0;
+                [_threeButton setChooseType:0];
+            }
+            break;
+        case 3:
+            if (_isFour == 0) {
+                _isFour = 1;
+                [_fourButton setChooseType:1];
+            } else {
+                _isFour = 0;
+                [_fourButton setChooseType:0];
+            }
+            break;
+        case 4:
+            if (_isFive == 0) {
+                _isFive = 1;
+                [_fiveButton setChooseType:1];
+            } else {
+                _isFive = 0;
+                [_fiveButton setChooseType:0];
+            }
+            break;
+        case 5:
+            if (_isSix == 0) {
+                _isSix = 1;
+                [_sixButton setChooseType:1];
+            } else {
+                _isSix = 0;
+                 [_sixButton setChooseType:0];
+            }
+            break;
+        default:
+            break;
+    }
+}
+
+//获取类型列表数据
+-(void) getTypesData {
+    self.typesList = [NSMutableArray arrayWithCapacity:0];
+    CouponsTypeInfo *info;
+    for (int i=0; i<10; i++) {
+        info = [[CouponsTypeInfo alloc] init];
+        info.typeId = i + 1;
+        info.name = @"满减类";
+        [_typesList addObject:info];
+    }
+    [self.typesTableView reloadData];
+}
+
+
+- (void)didReceiveMemoryWarning {
+    [super didReceiveMemoryWarning];
+    // Dispose of any resources that can be recreated.
+}
+
+//隐藏软键盘
+- (void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event {
+    [[self view] endEditing:YES];
+}
+
+
+//键盘收回事件，UITextField协议方法
+- (BOOL)textFieldShouldReturn:(UITextField *)textField{
+    [textField resignFirstResponder];
+    return NO;
+}
+
+//***更改frame的值***//
+//在UITextField 编辑之前调用方法
+- (void)textFieldDidBeginEditing:(UITextField *)textField {
+    //设置动画的名字
+    [UIView beginAnimations:@"Animation" context:nil];
+    //设置动画的间隔时间
+    [UIView setAnimationDuration:0.20];
+    //??使用当前正在运行的状态开始下一段动画
+    [UIView setAnimationBeginsFromCurrentState: YES];
+    //设置视图移动的位移
+    self.view.frame = CGRectMake(self.view.frame.origin.x, self.view.frame.origin.y - 200, self.view.frame.size.width, self.view.frame.size.height);
+    //设置动画结束
+    [UIView commitAnimations];
+}
+//在UITextField 编辑完成调用方法
+- (void)textFieldDidEndEditing:(UITextField *)textField {
+    //设置动画的名字
+    [UIView beginAnimations:@"Animation" context:nil];
+    //设置动画的间隔时间
+    [UIView setAnimationDuration:0.20];
+    //??使用当前正在运行的状态开始下一段动画
+    [UIView setAnimationBeginsFromCurrentState: YES];
+    //设置视图移动的位移
+    self.view.frame = CGRectMake(self.view.frame.origin.x, self.view.frame.origin.y + 200, self.view.frame.size.width, self.view.frame.size.height);
+    //设置动画结束
+    [UIView commitAnimations];
+}
+/*
+#pragma mark - Navigation
+
+// In a storyboard-based application, you will often want to do a little preparation before navigation
+- (void)prepareForSegue:(UIStoryboardSegue *)segue sender:(id)sender {
+    // Get the new view controller using [segue destinationViewController].
+    // Pass the selected object to the new view controller.
+}
+*/
+
+@end

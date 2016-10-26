@@ -1,0 +1,330 @@
+//
+//  DishingViewController.m
+//  OrderSys
+//
+//  Created by Macx on 15/8/14.
+//  Copyright (c) 2015年 北京星辰万合. All rights reserved.
+//
+
+#import "DishingViewController.h"
+#import "ListHeadView.h"
+#import "DishingCell.h"
+#import "DishingInfo.h"
+#import "DishesListViewController.h"
+#import "DishesListInfo.h"
+#import "BarNumInfo.h"
+#import "UIViewController+HUD.h"
+#import "WHInterfaceUtil.h"
+#import "CommonUtil.h"
+#import "DishInfo.h"
+
+/**
+ * 顾客点餐已点菜或已上全菜单列表
+ **/
+@interface DishingViewController ()<UITableViewDataSource,UITableViewDelegate>
+
+@property (nonatomic, retain) NSMutableArray *dataList;
+@property (nonatomic, retain) UITableView *myTableView;
+@property (nonatomic, retain) NSArray *percents;//比例
+@property(nonatomic,retain) NSMutableArray *selectList;//选中的菜品列表
+@property(nonatomic,assign) NSInteger orderId; //订单id
+
+@end
+
+@implementation DishingViewController
+
+- (instancetype)initWithBarNum:(BarNumInfo *) barNumInfo
+{
+    self = [super init];
+    if (self) {
+        self.barNumInfo = barNumInfo;
+        self.title = [NSString stringWithFormat:@"%d台", barNumInfo.barNum];
+        
+        //设置导航栏返回按钮
+        UIBarButtonItem *backItem = [[UIBarButtonItem alloc] init];
+        backItem.title = @"返回";
+        self.navigationItem.backBarButtonItem = backItem;
+
+        //列表头标识
+        NSArray *names = [[NSArray alloc] initWithObjects:@"菜品名称", @"数量",@"后厨状态",@"服务员状态",nil];
+        self.percents = [[NSArray alloc] initWithObjects: [NSString stringWithFormat:@"%f", (CGFloat)2/6], [NSString stringWithFormat:@"%f", (CGFloat)1/6], [NSString stringWithFormat:@"%f", (CGFloat)1/4], [NSString stringWithFormat:@"%f", (CGFloat)1/4], nil];
+        
+        ListHeadView *headView = [[ListHeadView alloc] initWithFrame:CGRectMake(0, STATU_BAR_HEIGHT + NAV_HEIGHT, SCREEN_WIDTH, ROW_HEIGHT - 10) withNamesArray:names withPercentArray:self.percents];
+        [self.view addSubview:headView];
+        
+        
+        //列表
+        UITableView *tableView = [[UITableView alloc] initWithFrame:CGRectMake(0, headView.frame.origin.y + headView.frame.size.height, SCREEN_WIDTH, SCREEN_HEIGHT - headView.frame.origin.y - headView.frame.size.height - ROW_HEIGHT * 2) style:UITableViewStylePlain];
+        // 设置tableView的数据源
+        tableView.dataSource = self;
+        // 设置tableView的委托
+        tableView.delegate = self;
+        // 设置tableView的背景图
+        tableView.backgroundColor = [UIColor whiteColor];
+        // 设置tableview分割线不显示
+        tableView.separatorStyle = UITableViewCellSeparatorStyleNone;
+        self.myTableView = tableView;
+        [self.view addSubview:tableView];
+        
+        
+        //按钮视图
+        UIView *chooseView = [[UIView alloc] initWithFrame:CGRectMake(0, SCREEN_HEIGHT - ROW_HEIGHT * 3/2, SCREEN_WIDTH, ROW_HEIGHT)];
+        chooseView.backgroundColor = [UIColor clearColor];
+        
+        CGFloat inset = SCREEN_WIDTH - 20 * 2 - 120 * 2;//按钮间隔
+        //编辑
+        UIButton *editButton = [[UIButton alloc] initWithFrame:CGRectMake(20, 5, 120, chooseView.frame.size.height - 10)];
+        [editButton setTitle:@"编辑" forState:UIControlStateNormal];
+        [editButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+        editButton.backgroundColor = [UIColor redColor];
+        editButton.layer.cornerRadius = 4;
+        editButton.tag = 0;
+        [editButton addTarget:self action:@selector(clickButtons:) forControlEvents:UIControlEventTouchUpInside];
+        [chooseView addSubview:editButton];
+        //结账
+        UIButton *checkButton = [[UIButton alloc] initWithFrame:CGRectMake(editButton.frame.origin.x + editButton.frame.size.width + inset, 5, 120, chooseView.frame.size.height - 10)];
+        [checkButton setTitle:@"结账" forState:UIControlStateNormal];
+        [checkButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+        checkButton.backgroundColor = [UIColor redColor];
+        checkButton.layer.cornerRadius = 4;
+        checkButton.tag = 1;
+        [checkButton addTarget:self action:@selector(clickButtons:) forControlEvents:UIControlEventTouchUpInside];
+        [chooseView addSubview:checkButton];
+        
+        [self.view addSubview:chooseView];
+        
+        [self getData];
+
+    }
+    return self;
+}
+
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    // Do any additional setup after loading the view.
+    
+    //设置导航栏返回按钮为白色
+    [self.navigationController.navigationBar setTintColor:[UIColor whiteColor]];
+    //设置背景颜色
+    self.view.backgroundColor = [UIColor whiteColor];
+}
+
+//创建并设置每行显示的内容
+- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
+    static NSString *CellWithIdentifier = @"Cell";
+    DishingCell *cell = [tableView dequeueReusableCellWithIdentifier:CellWithIdentifier];
+    NSUInteger row = [indexPath row];
+    if (cell == nil) {
+        cell = [[DishingCell alloc] initWithStyle:UITableViewCellStyleValue2 reuseIdentifier:CellWithIdentifier withCellHeight:44 withPercentArray:self.percents];
+    }
+    DishingInfo *info = [self.dataList objectAtIndex:row];
+    cell.nameLabel.text = info.name;
+    cell.numLabel.text = [NSString stringWithFormat:@"%d" , (int)info.num];
+    if (info.kitchenStatus == 0) { //后厨状态
+        [cell.kitchenButton setTitle:@"未上" forState:UIControlStateNormal];
+        [cell.kitchenButton setTitleColor:[UIColor redColor] forState:UIControlStateNormal];
+        [cell.kitchenButton setChooseType:2];
+        cell.kitchenButton.tag = row;
+        [cell.kitchenButton addTarget:self action:@selector(clickKitchenStatus:) forControlEvents:UIControlEventTouchUpInside];
+    } else if (info.kitchenStatus == 1) {
+        [cell.kitchenButton setTitle:@"已上" forState:UIControlStateNormal];
+        [cell.kitchenButton setTitleColor:[UIColor redColor] forState:UIControlStateNormal];
+        [cell.kitchenButton setChooseType:1];
+    } else {
+        [cell.kitchenButton setTitle:@"缺货" forState:UIControlStateNormal];
+        [cell.kitchenButton setTitleColor:[UIColor redColor] forState:UIControlStateNormal];
+        [cell.kitchenButton setChooseType:3];
+    }
+    [cell.waiterButton setTitleColor:[UIColor redColor] forState:UIControlStateNormal];
+    if (info.waiterStatus == 0) { //服务员状态
+        [cell.waiterButton setTitle:@"未上" forState:UIControlStateNormal];
+        [cell.waiterButton setChooseType:2];
+        cell.waiterButton.tag = row;
+        [cell.waiterButton addTarget:self action:@selector(clickWaiterStatus:) forControlEvents:UIControlEventTouchUpInside];
+    } else {
+        [cell.waiterButton setTitle:@"已上" forState:UIControlStateNormal];
+        [cell.waiterButton setChooseType:1];
+    }
+    cell.selectionStyle = UITableViewCellSelectionStyleNone;
+    return cell;
+}
+
+//内容分段
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView{
+    return 1;
+}
+
+//cell高度
+- (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath {
+    return 44;
+}
+
+//每个cell中显示多少行
+- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section{
+    return [_dataList count];
+}
+
+//列表点击事件
+- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath{
+    
+}
+
+
+//编辑 结账事件
+-(IBAction)clickButtons:(id)sender {
+    UIButton *button = (UIButton *) sender;
+    NSInteger row = button.tag;
+    if (row == 0) { //编辑
+        DishesListViewController *dishesList = [[DishesListViewController alloc] initWithBarNum:_barNumInfo withSelectedList:_selectList withOrderId:_orderId];
+        [self.navigationController pushViewController:dishesList animated:YES];
+    } else { //结账
+        [self checkOut];
+    }
+}
+
+//后厨状态点击事件
+-(IBAction)clickKitchenStatus:(id)sender {
+    ButtonView *button = (ButtonView *) sender;
+    NSInteger row = button.tag;
+    DishingInfo *info = [_dataList objectAtIndex:row];
+    info.kitchenStatus = 1;
+    [_myTableView reloadData];
+}
+
+//服务员状态点击事件
+-(IBAction)clickWaiterStatus:(id)sender {
+    ButtonView *button = (ButtonView *) sender;
+    NSInteger row = button.tag;
+    DishingInfo *info = [_dataList objectAtIndex:row];
+    info.waiterStatus = 1;
+    [_myTableView reloadData];
+}
+
+
+////获取列表数据
+//-(void) getData {
+//    self.dataList = [NSMutableArray arrayWithCapacity:0];
+//    self.selectList = [NSMutableArray arrayWithCapacity:0];
+//    DishingInfo *info;
+//    DishesListInfo *dishesInfo;
+//    for (int i=0; i<9; i++) {
+//        info = [[DishingInfo alloc] init];
+//        info.dishId = i + 1;
+//        info.name = @"菜品1";
+//        info.kitchenStatus = 1;
+//        info.waiterStatus = 0;
+//        info.num = 1;
+//        info.typehId = 1;
+//        info.typeName = @"类型1";
+//        [_dataList addObject:info];
+//        
+//        dishesInfo = [[DishesListInfo alloc] init];
+//        dishesInfo.dishId = info.dishId;
+//        dishesInfo.name = info.name;
+//        dishesInfo.num = info.num;
+//        dishesInfo.typeId = info.typehId;
+//        dishesInfo.typeName = info.typeName;
+//        [_selectList addObject:dishesInfo];
+//    }
+//    [self.myTableView reloadData];
+//}
+
+//获取数据
+-(void)getData{
+    [self showHudInView:self.view hint:@"正在加载"];
+    _dataList = [[NSMutableArray alloc] init];
+    
+    dispatch_async(dispatch_queue_create("getclass", DISPATCH_QUEUE_CONCURRENT), ^(){
+        NSString *param =[NSString stringWithFormat:@"%@", [WHInterfaceUtil longToJsonString:@"tId" withValue:_barNumInfo.barNum]];
+        NSDictionary *dics = [WHInterfaceUtil noLoginWithUrl:@"AboutBooking.asmx" urlValue:@"http://service.xingchen.com/getOrderByTable" withParams:param];
+        if (dics!=nil) {
+            _orderId = [[dics objectForKey:@"OrderId"] integerValue];
+            //菜单信息
+            NSMutableDictionary *OrderDish = [dics objectForKey:@"OrderDish"];
+            DishingInfo *info;
+            for (NSDictionary *key in OrderDish) {
+                info = [[DishingInfo alloc] init];
+                info.dishId = [[key objectForKey:@"DishId"] integerValue];
+                info.name = [key objectForKey:@"DishName"];
+                info.num = [[key objectForKey:@"DishCount"] integerValue];
+                info.typeName = @"素菜";
+                NSString *status = [key objectForKey:@"DishStatuCook"];
+                if ([@"Dish_Completed" isEqualToString:status]) {//配菜完成
+                    info.kitchenStatus = 1;
+                    info.waiterStatus = 0;
+                } else if ([@"Dish_Completed" isEqualToString:status]) {//送菜完成
+                    info.kitchenStatus = 1;
+                    info.waiterStatus = 1;
+                } else if ([@"Lack" isEqualToString:status]) {//缺货
+                    info.kitchenStatus = 2;
+                    info.waiterStatus = 0;
+                } else {
+                    info.kitchenStatus = 0;
+                    info.waiterStatus = 0;
+                }
+                [_dataList addObject:info];
+            }
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [self hideHud];
+                [_myTableView reloadData];
+                
+                
+            });
+        } else {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [self hideHud];
+                [CommonUtil showAlert:@"获取数据失败"];
+            });
+        }
+    });
+}
+
+//结账
+-(void)checkOut{
+    [self showHudInView:self.view hint:@"正在加载"];
+    _dataList = [[NSMutableArray alloc] init];
+    
+    dispatch_async(dispatch_queue_create("getclass", DISPATCH_QUEUE_CONCURRENT), ^(){
+        NSString *param =[NSString stringWithFormat:@"%@,%@",
+                    [WHInterfaceUtil longToJsonString:@"tId" withValue:_barNumInfo.barNum],
+                    [WHInterfaceUtil longToJsonString:@"oId" withValue:_orderId]];
+        NSDictionary *dics = [WHInterfaceUtil noLoginWithUrl:@"AboutBooking.asmx" urlValue:@"http://service.xingchen.com/checkByWaiter" withParams:param];
+        if (dics!=nil) {
+            int isSuccess = [[dics objectForKey:@"IsSuccess"] integerValue];
+            if (isSuccess == 1) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    [self hideHud];
+                    [self.navigationController popToRootViewControllerAnimated:YES];
+                    [CommonUtil showAlert:@"结账成功"];
+                });
+            } else {
+                [self hideHud];
+                [CommonUtil showAlert:@"结账失败"];
+            }
+        } else {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [self hideHud];
+                [CommonUtil showAlert:@"结账失败"];
+            });
+        }
+    });
+}
+
+
+
+- (void)didReceiveMemoryWarning {
+    [super didReceiveMemoryWarning];
+    // Dispose of any resources that can be recreated.
+}
+
+/*
+#pragma mark - Navigation
+
+// In a storyboard-based application, you will often want to do a little preparation before navigation
+- (void)prepareForSegue:(UIStoryboardSegue *)segue sender:(id)sender {
+    // Get the new view controller using [segue destinationViewController].
+    // Pass the selected object to the new view controller.
+}
+*/
+
+@end

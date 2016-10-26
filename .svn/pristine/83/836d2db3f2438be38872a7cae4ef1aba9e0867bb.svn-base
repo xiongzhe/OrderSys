@@ -1,0 +1,201 @@
+//
+//  LoginViewController.m
+//  OrderSys
+//
+//  Created by Macx on 15/8/21.
+//  Copyright (c) 2015年 北京星辰万合. All rights reserved.
+//
+
+#import "LoginViewController.h"
+#import "ViewController.h"
+#import "WHInterfaceUtil.h"
+#import "UIViewController+HUD.h"
+#import "CommonUtil.h"
+#import "SecretUtil.h"
+#import "NotifyClient.h"
+#import "AppDelegate.h"
+#import "LoginInfo.h"
+
+#define TF_HEIGHT 40 * WIDTH_RATE
+
+/**
+ * 登录页面
+ **/
+@interface LoginViewController ()<UITextFieldDelegate>
+
+@property (nonatomic, retain) UITextField *unameTf;
+@property (nonatomic, retain) UITextField *pswTf;
+
+@end
+
+@implementation LoginViewController
+
+- (instancetype)init
+{
+    self = [super init];
+    if (self) {
+        
+        //背景图片
+        UIImageView *bg = [[UIImageView alloc] initWithFrame:CGRectMake(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)];
+        [bg setImage:[UIImage imageNamed:@"login"]];
+        [self.view addSubview:bg];
+        
+        CGFloat top = 120;
+        if (IS_IPHONE_4_OR_LESS) {
+            top = 120;
+        } else if(IS_IPHONE_5) {
+            top = 150;
+        } else if(IS_IPHONE_6) {
+            top = 180;
+        } else {
+            top = 280;
+        }
+        
+        //用户名
+        _unameTf = [[UITextField alloc] initWithFrame:CGRectMake(60 * WIDTH_RATE, top, SCREEN_WIDTH - 120 * WIDTH_RATE, TF_HEIGHT)];
+        _unameTf.backgroundColor = [UIColor whiteColor];
+        _unameTf.borderStyle = UITextBorderStyleNone;
+        [_unameTf setClearButtonMode:UITextFieldViewModeWhileEditing];//右侧删除按钮
+        _unameTf.textColor = [UIColor whiteColor];
+        _unameTf.backgroundColor = RGBColor(100, 100, 100, 0.8);
+        _unameTf.layer.borderColor = [UIColor redColor].CGColor;
+        _unameTf.layer.borderWidth = 1;
+        _unameTf.layer.cornerRadius = 5;
+        _unameTf.delegate = self;
+        _unameTf.text = @"aaa";
+        _unameTf.keyboardType = UIKeyboardAppearanceDefault;
+        _unameTf.returnKeyType = UIReturnKeyDone;
+        [self.view addSubview:_unameTf];
+        
+        //密码
+        _pswTf = [[UITextField alloc] initWithFrame:CGRectMake(60 * WIDTH_RATE, _unameTf.frame.origin.y + _unameTf.frame.size.height + 7 * HEIGHT_RATE, SCREEN_WIDTH - 120 * WIDTH_RATE, TF_HEIGHT)];
+        _pswTf.backgroundColor = [UIColor whiteColor];
+        _pswTf.borderStyle = UITextBorderStyleNone;
+        [_pswTf setClearButtonMode:UITextFieldViewModeWhileEditing];//右侧删除按钮
+        _pswTf.textColor = [UIColor whiteColor];
+        _pswTf.backgroundColor = RGBColor(100, 100, 100, 0.8);
+        _pswTf.layer.borderColor = [UIColor redColor].CGColor;
+        _pswTf.layer.borderWidth = 1;
+        _pswTf.layer.cornerRadius = 5;
+        _pswTf.delegate = self;
+        _pswTf.text = @"123456";
+        _pswTf.keyboardType = UIKeyboardAppearanceDefault;
+        _pswTf.returnKeyType = UIReturnKeyDone;
+        [self.view addSubview:_pswTf];
+        
+        //登录按钮
+        UIButton *loginButton = [[UIButton alloc] initWithFrame:CGRectMake(_pswTf.frame.origin.x + 20 * WIDTH_RATE, _pswTf.frame.origin.y + _pswTf.frame.size.height + 7 * HEIGHT_RATE, _pswTf.frame.size.width - 40 * WIDTH_RATE, TF_HEIGHT)];
+        [loginButton setTitle:@"登录" forState:UIControlStateNormal];
+        [loginButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+        loginButton.backgroundColor = [UIColor redColor];
+        loginButton.layer.cornerRadius = 8;
+        [loginButton addTarget:self action:@selector(clickLogin:) forControlEvents:UIControlEventTouchUpInside];
+        [self.view addSubview:loginButton];
+        
+        
+
+        
+    }
+    return self;
+}
+
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    // Do any additional setup after loading the view.
+    
+}
+
+
+
+
+
+//登录事件
+-(IBAction)clickLogin:(id)sender {
+    [self showHudInView:self.view hint:@"正在登录"];
+    NSString *unameStr = _unameTf.text;
+    NSString *pwdStr = _pswTf.text;
+    const char *uname =[unameStr UTF8String];
+    const char *pwd =[pwdStr UTF8String];
+
+    dispatch_async(dispatch_queue_create("getclass", DISPATCH_QUEUE_CONCURRENT), ^(){
+        //获取时间戳
+       int timeStamp = [SecretUtil getTimestamp];
+       //获取token
+       unsigned char token[16];
+       createSecretKey((unsigned char *)token);
+       //获取加密mac地址、加密密码
+       unsigned long long iMac=0xACF7F3C0D62DULL;
+       unsigned long long secMac = getCryptedWLanMAC(token, iMac, timeStamp);
+       char cryptedPasswd[33];
+       getCryptedPassword(iMac, uname, pwd, timeStamp, (unsigned char *)token, (char *)cryptedPasswd);
+       NSString *param =[NSString stringWithFormat:@"{%@,%@,%@,%@,%@,%@,%@}"
+                            ,[WHInterfaceUtil stringToJsonString:@"name" withValue:unameStr]
+                            ,[WHInterfaceUtil intToJsonString:@"version" withValue:1]
+                            ,[WHInterfaceUtil intToJsonString:@"system" withValue:1]
+                            ,[WHInterfaceUtil intToJsonString:@"timeStamp" withValue:timeStamp]
+                            ,[WHInterfaceUtil byteArrayToJsonString:@"secrtKey" withValue: (char *)token withLength:16]
+                            ,[WHInterfaceUtil charPointerToJsonString:@"pwd" withValue: cryptedPasswd ]
+                            ,[WHInterfaceUtil longToJsonString:@"iden" withValue:(secMac)]
+                            ];
+        NSLog(@"%@",param);
+    
+        NSDictionary *dics = [WHInterfaceUtil sendMessageToServerUrl:@"AboutRestaurant.asmx" param:param urlValue:@"http://service.xingchen.com/login"];
+        if (dics!=nil) {
+            
+            LoginInfo *loginInfo = [[LoginInfo alloc] init];
+            NSArray *role = [dics objectForKey:@"Role"];
+            loginInfo.roles = role;
+            loginInfo.rid = [[dics objectForKey:@"RId"] integerValue];
+            loginInfo.uid = [[dics objectForKey:@"Uid"] integerValue];
+        
+            AppDelegate *app = [[UIApplication sharedApplication] delegate];
+            app.loginInfo = loginInfo;
+            
+            dispatch_async(dispatch_get_main_queue(), ^{
+                
+                [self hideHud];
+                _window = [[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
+                _window.backgroundColor = [UIColor whiteColor];
+                ViewController *root = [[ViewController alloc]init];
+                UINavigationController *nav = [[UINavigationController alloc]initWithRootViewController:root];//先将root添加在navigation上
+                [_window setRootViewController:nav];//navigation加在window上
+                [_window makeKeyAndVisible];
+            });
+
+        } else {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [self hideHud];
+                [CommonUtil showAlert:@"登录失败"];
+            });
+        }
+    });
+}
+
+- (void)didReceiveMemoryWarning {
+    [super didReceiveMemoryWarning];
+    // Dispose of any resources that can be recreated.
+}
+
+//隐藏软键盘
+- (void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event {
+    [[self view] endEditing:YES];
+}
+
+
+//键盘收回事件，UITextField协议方法
+- (BOOL)textFieldShouldReturn:(UITextField *)textField{
+    [textField resignFirstResponder];
+    return NO;
+}
+
+/*
+#pragma mark - Navigation
+
+// In a storyboard-based application, you will often want to do a little preparation before navigation
+- (void)prepareForSegue:(UIStoryboardSegue *)segue sender:(id)sender {
+    // Get the new view controller using [segue destinationViewController].
+    // Pass the selected object to the new view controller.
+}
+*/
+
+@end
